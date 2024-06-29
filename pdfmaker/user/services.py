@@ -35,3 +35,9 @@ def profile_count_update():
 
         except Exception as ex:
             print(ex)
+
+
+def update_or_add_signature(signature, user):
+    user.signature = signature
+    user.save()
+
