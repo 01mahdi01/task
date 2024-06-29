@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.core.cache import cache
 from .models import BaseUser, Profile
+import pdfkit
 
 
 def create_profile(*, user: BaseUser, bio: str | None) -> Profile:
@@ -38,8 +39,9 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-    usr = user.id
-    add = BaseUser.objects.get(id=usr)
-    add.signature = signature
-    add.save()
-    return user
+
+    us = BaseUser.objects.filter(id=user.id)
+    us.update(signature=signature)
+
+
+

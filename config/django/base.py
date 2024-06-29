@@ -172,3 +172,8 @@ from config.settings.celery import *  # noqa
 from config.settings.swagger import *  # noqa
 #from config.settings.sentry import *  # noqa
 #from config.settings.email_sending import *  # noqa
+
+# settings.py
+
+
+WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'

@@ -13,6 +13,8 @@ from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from drf_spectacular.utils import extend_schema
 from django.core.cache import cache
+from config.tasks import generate_user_pdf
+from celery.result import AsyncResult
 
 
 class ProfileApi(ApiAuthMixin, APIView):
@@ -136,4 +138,33 @@ class AddSignature(APIView):
         print(4)
         update_or_add_signature(signature, user)
         print(5)
-        return Response({"sdfsd": "asdfasdf"})
+        return Response({'message': 'Signature updated successfully'})
+
+
+class StartPdfTaskView(APIView):
+    class InputSerializer(serializers.Serializer):
+        user_id = serializers.IntegerField()
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.InputSerializer(data=request.data)
+        if serializer.is_valid():
+            user_id = serializer.validated_data['user_id']
+            task = generate_user_pdf.delay(user_id)
+            return Response({'task_id': task.id}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CheckTaskStatusView(APIView):
+    class InputSerializer(serializers.Serializer):
+        task_id = serializers.CharField()
+
+    def get(self, request, *args, **kwargs):
+        serializer = self.InputSerializer(data=request.query_params)
+        if serializer.is_valid():
+            task_id = serializer.validated_data['task_id']
+            result = generate_user_pdf.AsyncResult(task_id)
+            if result.status == 'SUCCESS':
+                pdf_url = result.result
+                return Response({'status': result.status, 'pdf_url': pdf_url})
+            return Response({'status': result.status}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

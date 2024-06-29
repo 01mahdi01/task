@@ -1,0 +1,29 @@
+<!-- templates/user_pdf_template.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>User PDF</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .user-info {
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="user-info">
+        <h1>{{ user.name }}</h1>
+        <p>Email: {{ user.email }}</p>
+        <p>Status: {{ user.is_active|yesno:"Active,Inactive" }}</p>
+        <p>Admin: {{ user.is_admin|yesno:"Yes,No" }}</p>
+        {% if user.signature %}
+        <p>Signature:</p>
+        <img src="{{ user.signature.url }}" alt="Signature" />
+        {% endif %}
+    </div>
+</body>
+</html>
