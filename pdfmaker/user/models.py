@@ -44,7 +44,7 @@ class BaseUser(BaseModel, AbstractBaseUser, PermissionsMixin):
 
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
-    signature = models.ImageField(upload_to='signatures/', blank=True, null=True, unique=True)
+    signature = models.ImageField(upload_to='signatures/', blank=True, null=True)
 
     objects = BaseUserManager()
 

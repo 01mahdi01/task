@@ -103,12 +103,37 @@ class RegisterApi(APIView):
         return Response(self.OutPutRegisterSerializer(user, context={"request": request}).data)
 
 
+class LoginView(APIView):
+    class inputserializer(serializers.Serializer):
+        email = serializers.EmailField(max_length=100)
+
+    def post(self, request):
+        serializer = self.inputserializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data.get("email")
+        user = BaseUser.objects.get(email=email)
+        # self.get_tokens_for_user(user)
+        refresh = RefreshToken.for_user(user)
+
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        })
+
+
 class AddSignature(APIView):
     class InputSerializer(serializers.Serializer):
-        signFile = serializers.ImageField
+        signFile = serializers.ImageField()
 
     def post(self, request):
         serializer = self.InputSerializer(data=request.data)
+        print(1)
+        serializer.is_valid(raise_exception=True)
+        print(2)
         user = request.user
+        print(3)
         signature = serializer.validated_data.get("signFile"),
+        print(4)
         update_or_add_signature(signature, user)
+        print(5)
+        return Response({"sdfsd": "asdfasdf"})

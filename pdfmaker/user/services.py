@@ -38,6 +38,8 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-    user.signature = signature
-    user.save()
-
+    usr = user.id
+    add = BaseUser.objects.get(id=usr)
+    add.signature = signature
+    add.save()
+    return user
