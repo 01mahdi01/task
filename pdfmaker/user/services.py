@@ -2,6 +2,13 @@ from django.db import transaction
 from django.core.cache import cache
 from .models import BaseUser, Profile
 import pdfkit
+from django.template.loader import render_to_string
+from config.django import base as settings
+import os
+import logging
+from celery import shared_task
+
+from django.template import Template, Context
 
 
 def create_profile(*, user: BaseUser, bio: str | None) -> Profile:
@@ -39,9 +46,39 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-
     us = BaseUser.objects.filter(id=user.id)
     us.update(signature=signature)
 
 
+logger = logging.getLogger(__name__)
 
+@shared_task()
+def generate_user_pdf(user_id):
+    try:
+        user = BaseUser.objects.get(id=user_id)
+        # Render the HTML template with user data
+        html_content = render_to_string('user_pdf_template.html', {'user': user})
+
+        # Define the path to save the generated PDF
+        pdf_dir = os.path.join(settings.MEDIA_ROOT)
+        if not os.path.exists(pdf_dir):
+            os.makedirs(pdf_dir)
+            logger.info(f'Created directory: {pdf_dir}')
+
+        pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
+
+        # Configure PDFKit with wkhtmltopdf path and options
+        pdfkit_config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_CMD)
+        options = {
+            'enable-local-file-access': None,  # Allows local file access
+            'no-outline': None,  # Remove this option
+        }
+
+        pdfkit.from_string(html_content, pdf_path, configuration=pdfkit_config, options=options)
+
+        logger.info(f'PDF generated at: {pdf_path}')
+        # Return the relative path to the PDF
+        return os.path.join(settings.MEDIA_URL, f'user_{user.id}.pdf')
+    except Exception as e:
+        logger.error(f'Error generating PDF for user {user_id}: {str(e)}')
+        raise

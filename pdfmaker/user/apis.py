@@ -8,13 +8,12 @@ from .validators import number_validator, special_char_validator, letter_validat
 from pdfmaker.user.models import BaseUser, Profile
 from pdfmaker.api.mixins import ApiAuthMixin
 from pdfmaker.user.selectors import get_profile
-from pdfmaker.user.services import register, update_or_add_signature
+from pdfmaker.user.services import register, update_or_add_signature, generate_user_pdf
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 
 from drf_spectacular.utils import extend_schema
 from django.core.cache import cache
-from config.tasks import generate_user_pdf
-from celery.result import AsyncResult
+
 
 
 class ProfileApi(ApiAuthMixin, APIView):

@@ -15,5 +15,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(('pdfmaker.api.urls', 'api'))),
     path('user/', include(('pdfmaker.user.urls', 'user'))),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+]
 
