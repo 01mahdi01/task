@@ -46,7 +46,7 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-    us = BaseUser.objects.filter(id=user.id)
+    us = BaseUser.objects.get(id=user.id)
     us.update(signature=signature)
 
 
@@ -54,6 +54,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task()
 def generate_user_pdf(user_id):
+    print(8)
     try:
         user = BaseUser.objects.get(id=user_id)
         # Render the HTML template with user data
@@ -70,10 +71,10 @@ def generate_user_pdf(user_id):
         # Configure PDFKit with wkhtmltopdf path and options
         pdfkit_config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_CMD)
         options = {
-            'enable-local-file-access': None,  # Allows local file access
+            'enable-local-file-access': True,  # Allows local file access
             'no-outline': None,  # Remove this option
         }
-
+        print(9)
         pdfkit.from_string(html_content, pdf_path, configuration=pdfkit_config, options=options)
 
         logger.info(f'PDF generated at: {pdf_path}')

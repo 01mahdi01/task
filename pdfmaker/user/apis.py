@@ -16,6 +16,7 @@ from django.core.cache import cache
 
 
 
+
 class ProfileApi(ApiAuthMixin, APIView):
     class OutPutSerializer(serializers.ModelSerializer):
         class Meta:
@@ -128,15 +129,10 @@ class AddSignature(APIView):
 
     def post(self, request):
         serializer = self.InputSerializer(data=request.data)
-        print(1)
         serializer.is_valid(raise_exception=True)
-        print(2)
         user = request.user
-        print(3)
         signature = serializer.validated_data.get("signFile"),
-        print(4)
         update_or_add_signature(signature, user)
-        print(5)
         return Response({'message': 'Signature updated successfully'})
 
 
@@ -159,11 +155,17 @@ class CheckTaskStatusView(APIView):
 
     def get(self, request, *args, **kwargs):
         serializer = self.InputSerializer(data=request.query_params)
+        print(1)
         if serializer.is_valid():
+            print(2)
             task_id = serializer.validated_data['task_id']
+            print(3)
             result = generate_user_pdf.AsyncResult(task_id)
+            print(4)
             if result.status == 'SUCCESS':
+                print(5)
                 pdf_url = result.result
+                print(6)
                 return Response({'status': result.status, 'pdf_url': pdf_url})
             return Response({'status': result.status}, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
