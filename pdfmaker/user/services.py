@@ -46,7 +46,7 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-    us = BaseUser.objects.get(id=user.id)
+    us = BaseUser.objects.filter(id=user.id)
     us.update(signature=signature)
 
 
@@ -72,8 +72,11 @@ def generate_user_pdf(user_id):
         pdfkit_config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_CMD)
         options = {
             'enable-local-file-access': True,  # Allows local file access
-            'no-outline': None,  # Remove this option
+
         }
+        print(pdf_dir)
+        print(html_content)
+        print(pdf_path)
         print(9)
         pdfkit.from_string(html_content, pdf_path, configuration=pdfkit_config, options=options)
 

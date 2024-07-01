@@ -75,7 +75,7 @@ TEMPLATES = [
 # config/settings.py
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'pdfmaker', 'user', 'pdfs')  # Make sure this path is correct
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')  # Make sure this path is correct
 
 
 WSGI_APPLICATION = 'config.wsgi.application'
