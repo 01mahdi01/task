@@ -8,7 +8,7 @@ from .validators import number_validator, special_char_validator, letter_validat
 from pdfmaker.user.models import BaseUser, Profile
 from pdfmaker.api.mixins import ApiAuthMixin
 from pdfmaker.user.selectors import get_profile
-from pdfmaker.user.services import register, update_or_add_signature, generate_user_pdf
+from pdfmaker.user.services import register, update_or_add_signature, generate_user_pdf, check_task_status
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from celery.result import AsyncResult
 from django.http import JsonResponse
@@ -157,10 +157,8 @@ class CheckTaskStatusView(APIView):
         print(1)
         if serializer.is_valid():
             task_id = serializer.validated_data['task_id']
-            result = AsyncResult(task_id)
-
-            return Response(JsonResponse(result))
-            redis.key
+            result_task = check_task_status(task_id)
+            return Response(result_task)
             # if result.status == 'SUCCESS':
             #     print(5)
             #     pdf_url = result.result

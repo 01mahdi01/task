@@ -11,7 +11,9 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from datetime import datetime
-from django.template import Template, Context
+import redis
+from django.http import JsonResponse
+import json
 
 
 def create_profile(*, user: BaseUser, bio: str | None) -> Profile:
@@ -123,3 +125,15 @@ def generate_user_pdf(user_id):
     except Exception as e:
         logger.error(f'Error generating PDF for user {user_id}: {str(e)}')
         raise
+
+
+def check_task_status(task_id):
+    redis_client = redis.StrictRedis.from_url(settings.REDIS_URL, decode_responses=True)
+    result = json.loads(redis_client.get(f"celery-task-meta-{task_id}"))
+    if result.get("status") == "SUCCESS":
+        pdf_path = result.get("result")
+        return pdf_path
+    result = result.get("status")
+    message = f"task was{result}"
+    return message
+
