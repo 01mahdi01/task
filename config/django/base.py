@@ -174,3 +174,4 @@ from config.settings.swagger import *  # noqa
 
 
 WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'
+CELERY_TRACK_STARTED = True

@@ -1,8 +1,6 @@
 from django.db import transaction
 from django.core.cache import cache
 from .models import BaseUser, Profile
-import pdfkit
-from django.template.loader import render_to_string
 from config.django import base as settings
 import os
 import logging
