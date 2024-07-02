@@ -77,7 +77,6 @@ TEMPLATES = [
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')  # Make sure this path is correct
 
-
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
@@ -173,8 +172,5 @@ from config.settings.swagger import *  # noqa
 # from config.settings.sentry import *  # noqa
 # from config.settings.email_sending import *  # noqa
 
-# settings.py
 
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, "/user/pdfs")
 WKHTMLTOPDF_CMD = '/usr/bin/wkhtmltopdf'

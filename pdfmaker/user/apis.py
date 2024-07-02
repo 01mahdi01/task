@@ -131,7 +131,7 @@ class AddSignature(APIView):
         serializer = self.InputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
-        signature = serializer.validated_data.get("signFile"),
+        signature = serializer.validated_data.get("signFile")
         update_or_add_signature(signature, user)
         return Response({'message': 'Signature updated successfully'})
 
@@ -153,7 +153,7 @@ class CheckTaskStatusView(APIView):
     class InputSerializer(serializers.Serializer):
         task_id = serializers.CharField()
 
-    def get(self, request, *args, **kwargs):
+    def get(self, request):
         serializer = self.InputSerializer(data=request.query_params)
         print(1)
         if serializer.is_valid():

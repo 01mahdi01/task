@@ -7,6 +7,9 @@ from config.django import base as settings
 import os
 import logging
 from celery import shared_task
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.pdfgen import canvas
 
 from django.template import Template, Context
 
@@ -46,43 +49,58 @@ def profile_count_update():
 
 
 def update_or_add_signature(signature, user):
-    us = BaseUser.objects.filter(id=user.id)
-    us.update(signature=signature)
+    us = BaseUser.objects.filter(id=user.id).first()
+
+    us.signature = signature
+    us.save()
 
 
 logger = logging.getLogger(__name__)
 
+
 @shared_task()
 def generate_user_pdf(user_id):
-    print(8)
     try:
         user = BaseUser.objects.get(id=user_id)
-        # Render the HTML template with user data
-        html_content = render_to_string('user_pdf_template.html', {'user': user})
 
         # Define the path to save the generated PDF
-        pdf_dir = os.path.join(settings.MEDIA_ROOT)
-        if not os.path.exists(pdf_dir):
-            os.makedirs(pdf_dir)
-            logger.info(f'Created directory: {pdf_dir}')
+        pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
+        # if not os.path.exists(pdf_dir):
+        #     os.makedirs(pdf_dir)
+        #     logger.info(f'Created directory: {pdf_dir}')
 
         pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
 
-        # Configure PDFKit with wkhtmltopdf path and options
-        pdfkit_config = pdfkit.configuration(wkhtmltopdf=settings.WKHTMLTOPDF_CMD)
-        options = {
-            'enable-local-file-access': True,  # Allows local file access
+        # Create a canvas object
+        c = canvas.Canvas(pdf_path, pagesize=letter)
 
-        }
-        print(pdf_dir)
-        print(html_content)
-        print(pdf_path)
-        print(9)
-        pdfkit.from_string(html_content, pdf_path, configuration=pdfkit_config, options=options)
+        # Set title
+        c.setTitle("User Profile")
+
+        # Draw the username
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(100, 750, "Username:")
+        c.setFont("Helvetica", 12)
+        c.drawString(200, 750, user.name)
+
+        # Draw the email
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(100, 730, "Email:")
+        c.setFont("Helvetica", 12)
+        c.drawString(200, 730, user.email)
+
+        # Draw the profile image if it exists
+        if user.signature:
+            # signature_path = os.path.join(settings.MEDIA_ROOT, "signatures", user.signature.url)  # Correctly resolve the image path
+            signature_path = user.signature.path
+            c.drawImage(signature_path, 100, 600, width=2 * inch, height=2 * inch)
+
+        # Save the PDF file
+        c.save()
 
         logger.info(f'PDF generated at: {pdf_path}')
         # Return the relative path to the PDF
-        return os.path.join(settings.MEDIA_URL, f'user_{user.id}.pdf')
+        return pdf_path
     except Exception as e:
         logger.error(f'Error generating PDF for user {user_id}: {str(e)}')
         raise
