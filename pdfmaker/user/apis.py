@@ -11,7 +11,7 @@ from pdfmaker.user.selectors import get_profile
 from pdfmaker.user.services import register, update_or_add_signature, generate_user_pdf
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from celery.result import AsyncResult
-
+from django.http import JsonResponse
 from drf_spectacular.utils import extend_schema
 from django.core.cache import cache
 
@@ -159,7 +159,8 @@ class CheckTaskStatusView(APIView):
             task_id = serializer.validated_data['task_id']
             result = AsyncResult(task_id)
 
-            return Response(result.ready())
+            return Response(JsonResponse(result))
+            redis.key
             # if result.status == 'SUCCESS':
             #     print(5)
             #     pdf_url = result.result

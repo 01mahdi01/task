@@ -8,7 +8,9 @@ from celery import shared_task
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
-
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from datetime import datetime
 from django.template import Template, Context
 
 
@@ -63,38 +65,57 @@ def generate_user_pdf(user_id):
 
         # Define the path to save the generated PDF
         pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
-        # if not os.path.exists(pdf_dir):
-        #     os.makedirs(pdf_dir)
-        #     logger.info(f'Created directory: {pdf_dir}')
+        if not os.path.exists(pdf_dir):
+            os.makedirs(pdf_dir)
+            logger.info(f'Created directory: {pdf_dir}')
 
         pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
 
-        # Create a canvas object
-        c = canvas.Canvas(pdf_path, pagesize=letter)
+        # Create a document template and a story
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        story = []
 
-        # Set title
-        c.setTitle("User Profile")
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = styles['Title']
+        normal_style = styles['Normal']
 
-        # Draw the username
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(100, 750, "Username:")
-        c.setFont("Helvetica", 12)
-        c.drawString(200, 750, user.name)
+        # Title
+        title = Paragraph("User Profile", title_style)
+        story.append(title)
+        story.append(Spacer(1, 0.5 * inch))
 
-        # Draw the email
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(100, 730, "Email:")
-        c.setFont("Helvetica", 12)
-        c.drawString(200, 730, user.email)
+        # Get the current date
+        heliacal_date = datetime.now().strftime("%B %d, %Y")
 
-        # Draw the profile image if it exists
+        # Heliacal Date
+        heliacal_date_text = f"<b> Date:</b> {heliacal_date}"
+        heliacal_date_paragraph = Paragraph(heliacal_date_text, normal_style)
+        story.append(heliacal_date_paragraph)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Username
+        username_text = f"<b>Username:</b> {user.name}"
+        username = Paragraph(username_text, normal_style)
+        story.append(username)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Email
+        email_text = f"<b>Email:</b> {user.email}"
+        email = Paragraph(email_text, normal_style)
+        story.append(email)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Profile Image
         if user.signature:
-            # signature_path = os.path.join(settings.MEDIA_ROOT, "signatures", user.signature.url)  # Correctly resolve the image path
             signature_path = user.signature.path
-            c.drawImage(signature_path, 100, 600, width=2 * inch, height=2 * inch)
+            img = Image(signature_path, width=2 * inch, height=2 * inch)
+            img.hAlign = 'LEFT'
+            story.append(img)
+            story.append(Spacer(1, 0.2 * inch))
 
-        # Save the PDF file
-        c.save()
+        # Build the PDF
+        doc.build(story)
 
         logger.info(f'PDF generated at: {pdf_path}')
         # Return the relative path to the PDF
