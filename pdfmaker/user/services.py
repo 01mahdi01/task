@@ -7,25 +7,59 @@ import logging
 from celery import shared_task
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.pdfgen import canvas
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from datetime import datetime
 import redis
-from django.http import JsonResponse
 import json
+
+# Configure the logger
+logger = logging.getLogger(__name__)
 
 
 def create_profile(*, user: BaseUser, bio: str | None) -> Profile:
+    """
+    Creates a new profile for a given user.
+
+    Args:
+        user (BaseUser): The user for whom the profile is being created.
+        bio (str | None): An optional bio for the profile.
+
+    Returns:
+        Profile: The created profile instance.
+    """
     return Profile.objects.create(user=user, bio=bio)
 
 
-def create_user(*, name, email: str, password: str) -> BaseUser:
+def create_user(*, name: str, email: str, password: str) -> BaseUser:
+    """
+    Creates a new user with the provided details.
+
+    Args:
+        name (str): The name of the user.
+        email (str): The email address of the user.
+        password (str): The password for the user account.
+
+    Returns:
+        BaseUser: The created user instance.
+    """
     return BaseUser.objects.create_user(name=name, email=email, password=password)
 
 
 @transaction.atomic
-def register(*, name, bio: str | None, email: str, password: str) -> BaseUser:
+def register(*, name: str, bio: str | None, email: str, password: str) -> BaseUser:
+    """
+    Registers a new user and creates a corresponding profile.
+
+    Args:
+        name (str): The name of the user.
+        bio (str | None): An optional bio for the user's profile.
+        email (str): The email address of the user.
+        password (str): The password for the user's account.
+
+    Returns:
+        BaseUser: The newly created user instance.
+    """
     user = create_user(name=name, email=email, password=password)
     create_profile(user=user, bio=bio)
 
@@ -33,9 +67,15 @@ def register(*, name, bio: str | None, email: str, password: str) -> BaseUser:
 
 
 def profile_count_update():
+    """
+    Updates the profile count information in the database based on cached data.
+
+    This function iterates over all cached profile data and updates the
+    `posts_count`, `subscribers_count`, and `subscriptions_count` for each profile.
+    """
     profiles = cache.keys("profile_*")
 
-    for profile_key in profiles:  # profile_amirbahador.pv@gmail.com
+    for profile_key in profiles:  # e.g., profile_amirbahador.pv@gmail.com
         email = profile_key.replace("profile_", "")
         data = cache.get(profile_key)
 
@@ -47,21 +87,37 @@ def profile_count_update():
             profile.save()
 
         except Exception as ex:
-            print(ex)
+            logger.error(f"Error updating profile for {email}: {ex}")
 
 
-def update_or_add_signature(signature, user):
+def update_or_add_signature(signature: str, user: BaseUser):
+    """
+    Updates or adds a signature for the specified user.
+
+    Args:
+        signature (str): The path to the signature image.
+        user (BaseUser): The user for whom the signature is being updated.
+    """
     us = BaseUser.objects.filter(id=user.id).first()
 
     us.signature = signature
     us.save()
 
 
-logger = logging.getLogger(__name__)
+@shared_task
+def generate_user_pdf(user_id: int) -> str:
+    """
+    Generates a PDF document containing the user's profile information.
 
+    Args:
+        user_id (int): The ID of the user for whom the PDF is being generated.
 
-@shared_task()
-def generate_user_pdf(user_id):
+    Returns:
+        str: The relative path to the generated PDF.
+
+    Raises:
+        Exception: If there is an error during the PDF generation process.
+    """
     try:
         user = BaseUser.objects.get(id=user_id)
 
@@ -127,13 +183,22 @@ def generate_user_pdf(user_id):
         raise
 
 
-def check_task_status(task_id):
+def check_task_status(task_id: str) -> str:
+    """
+    Checks the status of a Celery task and returns the result if successful.
+
+    Args:
+        task_id (str): The ID of the Celery task.
+
+    Returns:
+        str: The path to the generated PDF if the task was successful,
+             or a message indicating the task's status.
+    """
     redis_client = redis.StrictRedis.from_url(settings.REDIS_URL, decode_responses=True)
     result = json.loads(redis_client.get(f"celery-task-meta-{task_id}"))
     if result.get("status") == "SUCCESS":
         pdf_path = result.get("result")
         return pdf_path
     result = result.get("status")
-    message = f"task was{result}"
+    message = f"Task was {result}"
     return message
-
