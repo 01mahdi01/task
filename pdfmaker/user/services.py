@@ -104,6 +104,12 @@ def update_or_add_signature(signature: str, user: BaseUser):
     us.save()
 
 
+def delete_pdf(user):
+    pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
+    pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
+    os.remove(pdf_path)
+
+
 @shared_task
 def generate_user_pdf(user_id: int) -> str:
     """
@@ -123,61 +129,57 @@ def generate_user_pdf(user_id: int) -> str:
 
         # Define the path to save the generated PDF
         pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
-        if not os.path.exists(pdf_dir):
-            os.makedirs(pdf_dir)
-            logger.info(f'Created directory: {pdf_dir}')
-
         pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
+        if not os.path.exists(pdf_path):
+            # Create a document template and a story
+            doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+            story = []
 
-        # Create a document template and a story
-        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
-        story = []
+            # Get styles
+            styles = getSampleStyleSheet()
+            title_style = styles['Title']
+            normal_style = styles['Normal']
 
-        # Get styles
-        styles = getSampleStyleSheet()
-        title_style = styles['Title']
-        normal_style = styles['Normal']
+            # Title
+            title = Paragraph("User Profile", title_style)
+            story.append(title)
+            story.append(Spacer(1, 0.5 * inch))
 
-        # Title
-        title = Paragraph("User Profile", title_style)
-        story.append(title)
-        story.append(Spacer(1, 0.5 * inch))
+            # Get the current date
+            heliacal_date = datetime.now().strftime("%B %d, %Y")
 
-        # Get the current date
-        heliacal_date = datetime.now().strftime("%B %d, %Y")
-
-        # Heliacal Date
-        heliacal_date_text = f"<b> Date:</b> {heliacal_date}"
-        heliacal_date_paragraph = Paragraph(heliacal_date_text, normal_style)
-        story.append(heliacal_date_paragraph)
-        story.append(Spacer(1, 0.2 * inch))
-
-        # Username
-        username_text = f"<b>Username:</b> {user.name}"
-        username = Paragraph(username_text, normal_style)
-        story.append(username)
-        story.append(Spacer(1, 0.2 * inch))
-
-        # Email
-        email_text = f"<b>Email:</b> {user.email}"
-        email = Paragraph(email_text, normal_style)
-        story.append(email)
-        story.append(Spacer(1, 0.2 * inch))
-
-        # Profile Image
-        if user.signature:
-            signature_path = user.signature.path
-            img = Image(signature_path, width=2 * inch, height=2 * inch)
-            img.hAlign = 'LEFT'
-            story.append(img)
+            # Heliacal Date
+            heliacal_date_text = f"<b> Date:</b> {heliacal_date}"
+            heliacal_date_paragraph = Paragraph(heliacal_date_text, normal_style)
+            story.append(heliacal_date_paragraph)
             story.append(Spacer(1, 0.2 * inch))
 
-        # Build the PDF
-        doc.build(story)
+            # Username
+            username_text = f"<b>Username:</b> {user.name}"
+            username = Paragraph(username_text, normal_style)
+            story.append(username)
+            story.append(Spacer(1, 0.2 * inch))
+
+            # Email
+            email_text = f"<b>Email:</b> {user.email}"
+            email = Paragraph(email_text, normal_style)
+            story.append(email)
+            story.append(Spacer(1, 0.2 * inch))
+
+            # Profile Image
+            if user.signature:
+                signature_path = user.signature.path
+                img = Image(signature_path, width=2 * inch, height=2 * inch)
+                img.hAlign = 'LEFT'
+                story.append(img)
+                story.append(Spacer(1, 0.2 * inch))
+            # Build the PDF
+            doc.build(story)
+            return pdf_path
 
         logger.info(f'PDF generated at: {pdf_path}')
         # Return the relative path to the PDF
-        return pdf_path
+        return f"{pdf_path} already done"
     except Exception as e:
         logger.error(f'Error generating PDF for user {user_id}: {str(e)}')
         raise
