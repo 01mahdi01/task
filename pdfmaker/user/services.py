@@ -12,6 +12,8 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
 from datetime import datetime
 import redis
 import json
+import fitz
+import re
 
 # Configure the logger
 logger = logging.getLogger(__name__)
@@ -107,7 +109,8 @@ def update_or_add_signature(signature: str, user: BaseUser):
 def delete_pdf(user):
     pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
     pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
-    os.remove(pdf_path)
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
 
 
 @shared_task
@@ -130,62 +133,60 @@ def generate_user_pdf(user_id: int) -> str:
         # Define the path to save the generated PDF
         pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
         pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
-        if not os.path.exists(pdf_path):
-            # Create a document template and a story
-            doc = SimpleDocTemplate(pdf_path, pagesize=letter)
-            story = []
+        # Create a document template and a story
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter)
+        story = []
 
-            # Get styles
-            styles = getSampleStyleSheet()
-            title_style = styles['Title']
-            normal_style = styles['Normal']
+        # Get styles
+        styles = getSampleStyleSheet()
+        title_style = styles['Title']
+        normal_style = styles['Normal']
 
-            # Title
-            title = Paragraph("User Profile", title_style)
-            story.append(title)
-            story.append(Spacer(1, 0.5 * inch))
+        # Title
+        title = Paragraph("User Profile", title_style)
+        story.append(title)
+        story.append(Spacer(1, 0.5 * inch))
 
-            # Get the current date
-            heliacal_date = datetime.now().strftime("%B %d, %Y")
+        # Get the current date
+        heliacal_date = datetime.now().strftime("%B %d, %Y")
 
-            # Heliacal Date
-            heliacal_date_text = f"<b> Date:</b> {heliacal_date}"
-            heliacal_date_paragraph = Paragraph(heliacal_date_text, normal_style)
-            story.append(heliacal_date_paragraph)
+        # Heliacal Date
+        heliacal_date_text = f"<b> Date:</b> {heliacal_date}"
+        heliacal_date_paragraph = Paragraph(heliacal_date_text, normal_style)
+        story.append(heliacal_date_paragraph)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Username
+        username_text = f"<b>Username:</b> {user.name}"
+        username = Paragraph(username_text, normal_style)
+        story.append(username)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Email
+        email_text = f"<b>Email:</b> {user.email}"
+        email = Paragraph(email_text, normal_style)
+        story.append(email)
+        story.append(Spacer(1, 0.2 * inch))
+
+        # Profile Image
+        if user.signature:
+            signature_path = user.signature.path
+            img = Image(signature_path, width=2 * inch, height=2 * inch)
+            img.hAlign = 'LEFT'
+            story.append(img)
             story.append(Spacer(1, 0.2 * inch))
-
-            # Username
-            username_text = f"<b>Username:</b> {user.name}"
-            username = Paragraph(username_text, normal_style)
-            story.append(username)
-            story.append(Spacer(1, 0.2 * inch))
-
-            # Email
-            email_text = f"<b>Email:</b> {user.email}"
-            email = Paragraph(email_text, normal_style)
-            story.append(email)
-            story.append(Spacer(1, 0.2 * inch))
-
-            # Profile Image
-            if user.signature:
-                signature_path = user.signature.path
-                img = Image(signature_path, width=2 * inch, height=2 * inch)
-                img.hAlign = 'LEFT'
-                story.append(img)
-                story.append(Spacer(1, 0.2 * inch))
-            # Build the PDF
-            doc.build(story)
-            return pdf_path
+        # Build the PDF
+        doc.build(story)
 
         logger.info(f'PDF generated at: {pdf_path}')
         # Return the relative path to the PDF
-        return f"{pdf_path} already done"
+        return f"{pdf_path}"
     except Exception as e:
         logger.error(f'Error generating PDF for user {user_id}: {str(e)}')
         raise
 
 
-def check_task_status(task_id: str) -> str:
+def check_task_status(task_id: str, user) -> str:
     """
     Checks the status of a Celery task and returns the result if successful.
 
@@ -199,8 +200,32 @@ def check_task_status(task_id: str) -> str:
     redis_client = redis.StrictRedis.from_url(settings.REDIS_URL, decode_responses=True)
     result = json.loads(redis_client.get(f"celery-task-meta-{task_id}"))
     if result.get("status") == "SUCCESS":
-        pdf_path = result.get("result")
-        return pdf_path
-    result = result.get("status")
-    message = f"Task was {result}"
-    return message
+        path = result.get("result")
+        pdf_document = fitz.open(path)
+
+        page = pdf_document.load_page(0)
+        pdf_text = page.get_text()
+        print(page.get_images())
+        username_pattern = re.compile(r'Username:\s*([\w]+)')
+        email_pattern = re.compile(r'Email:\s*([\w\.]+@[\w\.]+)')
+        username_match = username_pattern.search(pdf_text).group(1)
+        email_match = email_pattern.search(pdf_text).group(1)
+        usr = BaseUser.objects.get(id=user)
+
+        if username_match == usr.name and email_match == usr.email and page.get_images():
+            pdf_path = result.get("result")
+            return f"{pdf_path}"
+        else:
+            redis_client.set(task_id, 1)
+            print(redis_client.get(task_id))
+            while int(redis_client.get(task_id)) < 5:
+                redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
+                generate_user_pdf.delay(user)
+            return "something went wrong"
+    else:
+        redis_client.set(task_id, 1)
+        print(redis_client.get(task_id))
+        while int(redis_client.get(task_id)) < 5:
+            redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
+            generate_user_pdf.delay(user)
+        return result.get("status")

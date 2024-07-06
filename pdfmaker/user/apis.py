@@ -210,7 +210,7 @@ class StartPdfTaskView(APIView):
                 return Response({'task_id': task.id}, status=status.HTTP_200_OK)
             elif serializer.validated_data['task_id'] != "None":
                 task_id = serializer.validated_data['task_id']
-                result_task = check_task_status(task_id)
+                result_task = check_task_status(task_id, user_id)
                 return Response(result_task)
 
 
