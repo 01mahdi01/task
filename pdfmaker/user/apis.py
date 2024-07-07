@@ -213,24 +213,3 @@ class StartPdfTaskView(APIView):
                 return Response(result_task)
 
 
-class CheckTaskStatusView(APIView):
-    """
-    API view to check the status of a Celery task.
-    """
-
-    # class InputSerializer(serializers.Serializer):
-    #     """
-    #     Serializer for validating the task ID.
-    #     """
-    #     task_id = serializers.CharField()
-    #
-    # def get(self, request):
-    #     """
-    #     Check the status of the specified Celery task and return the result.
-    #     """
-    #     serializer = self.InputSerializer(data=request.query_params)
-    #     if serializer.is_valid():
-    #         task_id = serializer.validated_data['task_id']
-    #         result_task = check_task_status(task_id)
-    #         return Response(result_task)
-    #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
