@@ -193,7 +193,6 @@ class StartPdfTaskView(APIView):
         """
         Serializer for validating the user ID for the PDF task.
         """
-        user_id = serializers.IntegerField()
         task_id = serializers.CharField(max_length=200, default=None)
 
     def post(self, request, *args, **kwargs):
@@ -202,7 +201,7 @@ class StartPdfTaskView(APIView):
         """
         serializer = self.InputSerializer(data=request.data)
         if serializer.is_valid():
-            user_id = serializer.validated_data['user_id']
+            user_id = request.user.id
             pdf_dir = os.path.join(settings.MEDIA_ROOT, "pdfs")
             pdf_path = os.path.join(pdf_dir, f'user_{user_id}.pdf')
             if not os.path.exists(pdf_path):

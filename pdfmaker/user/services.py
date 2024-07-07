@@ -104,6 +104,7 @@ def update_or_add_signature(signature: str, user: BaseUser):
 
     us.signature = signature
     us.save()
+    delete_pdf(us)
 
 
 def delete_pdf(user):
@@ -111,6 +112,9 @@ def delete_pdf(user):
     pdf_path = os.path.join(pdf_dir, f'user_{user.id}.pdf')
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
+    redis_client = redis.StrictRedis.from_url(settings.REDIS_URL, decode_responses=True)
+    redis_client.delete(f"disabled_user{user.id}_task")
+
 
 
 @shared_task
@@ -205,7 +209,6 @@ def check_task_status(task_id: str, user) -> str:
 
         page = pdf_document.load_page(0)
         pdf_text = page.get_text()
-        print(page.get_images())
         username_pattern = re.compile(r'Username:\s*([\w]+)')
         email_pattern = re.compile(r'Email:\s*([\w\.]+@[\w\.]+)')
         username_match = username_pattern.search(pdf_text).group(1)
@@ -216,16 +219,27 @@ def check_task_status(task_id: str, user) -> str:
             pdf_path = result.get("result")
             return f"{pdf_path}"
         else:
-            redis_client.set(task_id, 1)
-            print(redis_client.get(task_id))
-            while int(redis_client.get(task_id)) < 5:
-                redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
-                generate_user_pdf.delay(user)
-            return "something went wrong"
+            redis_client.set(task_id, 0)
+            if not redis_client.exists(f"disabled_user{user}_task"):
+                while int(redis_client.get(task_id)) < 5:
+                    pdf_path = result.get("result")
+                    if os.path.exists(pdf_path):
+                        os.remove(pdf_path)
+                    redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
+                    generate_user_pdf.delay(user)
+                redis_client.set(f"disabled_user{user}_task", "disabled")
+                redis_client.expire(task_id, 360)
+            return "something went wrong update your signature or wait for 60 minutes"
     else:
         redis_client.set(task_id, 1)
-        print(redis_client.get(task_id))
-        while int(redis_client.get(task_id)) < 5:
-            redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
-            generate_user_pdf.delay(user)
-        return result.get("status")
+        if not redis_client.exists(f"disabled_user{user}_task"):
+            while int(redis_client.get(task_id)) < 5:
+                redis_client.set(task_id, int(redis_client.get(task_id)) + 1)
+                pdf_path = result.get("result")
+                if os.path.exists(pdf_path):
+                    os.remove(pdf_path)
+                generate_user_pdf.delay(user)
+            redis_client.set(f"disabled_user{user}_task", "disabled")
+            redis_client.expire(task_id, 360)
+        message = result.get("status")
+        return f"{message}, update your signature or wait for 60 minutes"
